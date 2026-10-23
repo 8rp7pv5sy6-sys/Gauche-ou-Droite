@@ -1,0 +1,501 @@
+<title>À gauche ou à droite</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+/* Concept : un hémicycle se remplit siège après siège pendant qu'on swipe des bulletins posés sur la table. */
+:root {
+  --bg: #EDEFF4;
+  --surface: #FFFFFF;
+  --fg: #151823;
+  --muted: #565D70;
+  --line: #D3D8E3;
+  --seat-empty: #D3D8E3;
+  --left: #C42B47;
+  --on-left: #FFFFFF;
+  --right: #1F4FBF;
+  --on-right: #FFFFFF;
+  --shadow: 0 1px 2px rgba(21, 24, 35, .06), 0 12px 32px -12px rgba(21, 24, 35, .22);
+  --font-display: 'Bricolage Grotesque', 'Arial Black', system-ui, sans-serif;
+  --font-body: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --t: .28s;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1017;
+    --surface: #181B26;
+    --fg: #EEF0F6;
+    --muted: #A0A7BA;
+    --line: #2B3043;
+    --seat-empty: #2B3043;
+    --left: #F2677D;
+    --on-left: #1E0B10;
+    --right: #7498FF;
+    --on-right: #0A1330;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 14px 34px -12px rgba(0, 0, 0, .7);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1017;
+  --surface: #181B26;
+  --fg: #EEF0F6;
+  --muted: #A0A7BA;
+  --line: #2B3043;
+  --seat-empty: #2B3043;
+  --left: #F2677D;
+  --on-left: #1E0B10;
+  --right: #7498FF;
+  --on-right: #0A1330;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 14px 34px -12px rgba(0, 0, 0, .7);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.45;
+  padding-block: 20px 28px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.app { max-width: 460px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+
+header { text-align: center; }
+.kicker {
+  margin: 0 0 4px;
+  font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--muted);
+}
+h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(30px, 9vw, 42px);
+  line-height: 1.02;
+  letter-spacing: -.02em;
+  text-wrap: balance;
+}
+h1 .l { color: var(--left); }
+h1 .r { color: var(--right); }
+h1 .ou { font-weight: 500; color: var(--muted); }
+
+.chamber { margin: 0 -4px; }
+.chamber svg { display: block; width: 100%; height: auto; max-height: 190px; }
+.seat { transition: fill var(--t), stroke var(--t); }
+.seat-now { animation: pulse 1.3s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes pulse { 50% { transform: scale(1.14); } }
+.hemi-num { font-family: var(--font-display); font-weight: 800; font-size: 28px; fill: var(--fg); text-anchor: middle; }
+.hemi-lab { font-family: var(--font-body); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; fill: var(--muted); text-anchor: middle; }
+
+.stage { display: flex; flex-direction: column; gap: 14px; }
+.deck { position: relative; touch-action: pan-y; }
+.card {
+  position: relative;
+  min-height: 250px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  padding: 22px 22px 18px;
+  display: flex; flex-direction: column; justify-content: space-between; gap: 16px;
+  touch-action: pan-y;
+  user-select: none; -webkit-user-select: none;
+  cursor: grab;
+  will-change: transform;
+}
+.card.drag { cursor: grabbing; }
+.card.enter { animation: enter var(--t) ease-out; }
+@keyframes enter { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
+.ask { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.practice {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(25px, 7.2vw, 32px);
+  line-height: 1.12;
+  letter-spacing: -.015em;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+}
+.hint { margin: 0; font-size: 13px; color: var(--muted); }
+
+.stamp {
+  position: absolute; top: 16px;
+  padding: 3px 10px;
+  border: 3px solid currentColor; border-radius: 8px;
+  font-family: var(--font-display); font-weight: 800; font-size: 20px; letter-spacing: .04em; text-transform: uppercase;
+  opacity: 0; pointer-events: none;
+}
+.stamp-l { left: 16px; color: var(--left); transform: rotate(-9deg); }
+.stamp-r { right: 16px; color: var(--right); transform: rotate(9deg); }
+
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.btn {
+  appearance: none; border: 0; cursor: pointer;
+  min-height: 54px; padding: 12px 16px;
+  border-radius: 14px;
+  font-family: var(--font-display); font-weight: 700; font-size: 18px;
+  transition: transform .12s ease, filter .12s ease;
+}
+.btn:active { transform: scale(.97); }
+.btn:hover { filter: brightness(1.06); }
+.btn.l { background: var(--left); color: var(--on-left); }
+.btn.r { background: var(--right); color: var(--on-right); }
+.btn.plain { background: var(--fg); color: var(--bg); }
+.btn.ghost { background: transparent; color: var(--fg); box-shadow: inset 0 0 0 2px var(--line); }
+.btn:focus-visible, .card:focus-visible, textarea:focus-visible { outline: 3px solid var(--fg); outline-offset: 3px; }
+
+.reveal-card { cursor: default; gap: 10px; justify-content: center; }
+.verdict { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 40px; line-height: 1; letter-spacing: -.02em; display: flex; align-items: center; gap: 12px; }
+.mark {
+  display: inline-grid; place-items: center;
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--fg); color: var(--bg);
+  font-size: 22px; font-weight: 800;
+}
+.sideline { margin: 0; font-size: 16px; }
+.sideline strong { font-weight: 600; padding: 1px 8px; border-radius: 6px; }
+.sideline .tagL { background: var(--left); color: var(--on-left); }
+.sideline .tagR { background: var(--right); color: var(--on-right); }
+.quip { margin: 6px 0 0; font-size: 18px; line-height: 1.35; text-wrap: pretty; }
+.picked { margin: 0; font-size: 13px; color: var(--muted); }
+
+.result { text-align: center; align-items: center; cursor: default; justify-content: center; gap: 8px; }
+.score { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 72px; line-height: 1; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.score small { font-size: 30px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+.rtitle { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 24px; line-height: 1.15; text-wrap: balance; }
+.rmsg { margin: 0; color: var(--muted); text-wrap: pretty; max-width: 34ch; }
+.legend { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 6px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+.dot.full { background: var(--fg); }
+.dot.hollow { box-shadow: inset 0 0 0 2.5px var(--fg); }
+.endrow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+textarea {
+  width: 100%; min-height: 64px; resize: none;
+  font: inherit; font-size: 14px; color: var(--fg);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
+}
+.foot { margin: 4px 0 0; text-align: center; font-size: 12.5px; color: var(--muted); text-wrap: balance; }
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --t: 0s; }
+  .seat-now, .card.enter { animation: none; }
+  .btn { transition: none; }
+}
+</style>
+
+<main class="app">
+  <header>
+    <p class="kicker">Quiz satirique</p>
+    <h1><span class="l">À gauche</span> <span class="ou">ou</span> <span class="r">à droite</span></h1>
+  </header>
+
+  <section class="chamber" aria-label="Progression"><svg id="hemi" viewBox="0 0 220 120" role="img" aria-label="Hémicycle de progression"></svg></section>
+
+  <section class="stage">
+    <div id="play">
+      <div class="deck">
+        <article class="card" id="card" tabindex="0" aria-label="Carte à swiper">
+          <span class="stamp stamp-l" id="stampL">Gauche</span>
+          <span class="stamp stamp-r" id="stampR">Droite</span>
+          <p class="ask">Ça, c'est plutôt…</p>
+          <p class="practice" id="practice"></p>
+          <p class="hint">Glisse la carte à gauche ou à droite, ou touche un bouton.</p>
+        </article>
+      </div>
+      <div class="actions" style="margin-top:14px">
+        <button class="btn l" id="btnL" type="button">← De gauche</button>
+        <button class="btn r" id="btnR" type="button">De droite →</button>
+      </div>
+    </div>
+
+    <div id="reveal" hidden>
+      <article class="card reveal-card" aria-live="polite">
+        <p class="verdict"><span class="mark" id="mark" aria-hidden="true"></span><span id="verdict"></span></p>
+        <p class="sideline" id="sideline"></p>
+        <p class="quip" id="quip"></p>
+        <p class="picked" id="picked"></p>
+      </article>
+      <button class="btn plain" id="next" type="button" style="width:100%;margin-top:14px">Carte suivante</button>
+    </div>
+
+    <div id="result" hidden>
+      <article class="card result">
+        <p class="score"><span id="scoreN"></span><small id="scoreT"></small></p>
+        <p class="rtitle" id="rtitle"></p>
+        <p class="rmsg" id="rmsg"></p>
+        <div class="legend">
+          <span><i class="dot full"></i>Bien vu</span>
+          <span><i class="dot hollow"></i>Raté</span>
+        </div>
+      </article>
+      <div class="endrow" style="margin-top:14px">
+        <button class="btn ghost" id="again" type="button">Rejouer</button>
+        <button class="btn plain" id="share" type="button">Copier mon score</button>
+      </div>
+      <textarea id="shareText" readonly hidden aria-label="Texte à copier" style="margin-top:12px"></textarea>
+    </div>
+  </section>
+
+  <p class="foot">Satire. Les clichés servent à en rire, pas à classer les gens : personne n'est aussi simple qu'une carte.</p>
+</main>
+
+<script>
+(function () {
+  var QUESTIONS = [
+    { t: "Karl Marx", s: "L", q: "Il a écrit Le Capital, financé en grande partie par un industriel : son ami Engels." },
+    { t: "Adolf Hitler", s: "R", q: "Le mot « socialiste » dans le nom de son parti n'en faisait pas un parti de gauche." },
+    { t: "La doudoune sans manche", s: "R", q: "Vigneron, commercial, assureur chez Axa : peu importe qui la porte, il est systématiquement de droite." },
+    { t: "Faire du vélo en amoureux en Bretagne", s: "L", q: "Moyen de transport propre, contact avec la nature, etc." },
+    { t: "Raphaël Glucksmann", s: "R", q: "Question piège : méfiez-vous des apparences, c'est en réalité un agent infiltré." },
+    { t: "Le padel en afterwork", s: "R", q: "Le réseau se construit entre deux échanges, et le café se prend à la fin du set." },
+    { t: "Boire de la 8-6 le mardi matin", s: "L", q: "Comment tu vas créer de la richesse en t'alcoolisant à pas cher ?!" },
+    { t: "Utiliser l'IA pour créer des jeux débiles", s: "R", q: "Tié égoïste le S" },
+    { t: "Kylian Mbappé", s: "R", q: "Se prend pour l'élu et ne pense qu'à ses stats perso." },
+    { t: "Ousmane Dembélé", s: "L", q: "Le Ballon d'or du peuple." },
+    { t: "Branler son pote", s: "L", q: "Tu aimes partager sans rien attendre en retour." },
+    { t: "Branler son patron", s: "R", q: "Tu fais ça par pur intérêt financier ou social." },
+    { t: "Mia Khalifa", s: "L", q: "Elle a énormément offert au peuple, et a déjà crié ACAB." },
+    { t: "Boire des matchas latte en regardant Quotidien", s: "R", q: "La gauche caviar, c'est la droite en fait." }
+  ];
+
+  var TIERS = [
+    { max: 0.3, title: "Radar en panne", msg: "Les clichés t'échappent. C'est peut-être le signe d'une vie sociale équilibrée." },
+    { max: 0.6, title: "Niveau sondage", msg: "Tu devines à peu près, avec une marge d'erreur de plusieurs points." },
+    { max: 0.85, title: "Œil de lynx", msg: "Tu repères les clichés avant même la fin de la phrase." },
+    { max: 1.01, title: "Habitué des repas de famille", msg: "Tu pourrais animer une soirée électorale sans notes." }
+  ];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var card = $("card"), stampL = $("stampL"), stampR = $("stampR");
+  var playEl = $("play"), revealEl = $("reveal"), resultEl = $("result");
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var T = reduce ? 0 : 280;
+
+  var order = [], idx = 0, results = [], locked = false;
+  var SVGNS = "http://www.w3.org/2000/svg";
+  var seatEls = [], hemiNum, hemiLab;
+
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  function buildHemicycle(n) {
+    var svg = $("hemi");
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    var outerN = Math.ceil(n * 0.57), innerN = n - outerN, cx = 110, cy = 106;
+    var rows = [{ r: 82, n: outerN }, { r: 56, n: innerN }];
+    var seats = [];
+    rows.forEach(function (row) {
+      for (var k = 0; k < row.n; k++) {
+        var a = row.n === 1 ? Math.PI / 2 : Math.PI - k * Math.PI / (row.n - 1);
+        seats.push({ x: cx + row.r * Math.cos(a), y: cy - row.r * Math.sin(a), a: a, r: row.r });
+      }
+    });
+    seats.sort(function (p, q) { return (q.a - p.a) || (q.r - p.r); });
+    seatEls = seats.map(function (s) {
+      var c = document.createElementNS(SVGNS, "circle");
+      c.setAttribute("cx", s.x.toFixed(1));
+      c.setAttribute("cy", s.y.toFixed(1));
+      c.setAttribute("r", "10");
+      c.setAttribute("class", "seat");
+      c.setAttribute("fill", "var(--seat-empty)");
+      c.setAttribute("stroke", "none");
+      svg.appendChild(c);
+      return c;
+    });
+    hemiNum = document.createElementNS(SVGNS, "text");
+    hemiNum.setAttribute("x", "110"); hemiNum.setAttribute("y", "92");
+    hemiNum.setAttribute("class", "hemi-num");
+    svg.appendChild(hemiNum);
+    hemiLab = document.createElementNS(SVGNS, "text");
+    hemiLab.setAttribute("x", "110"); hemiLab.setAttribute("y", "108");
+    hemiLab.setAttribute("class", "hemi-lab");
+    hemiLab.textContent = "cartes jouées";
+    svg.appendChild(hemiLab);
+  }
+
+  function paintSeats() {
+    seatEls.forEach(function (c, i) {
+      c.classList.remove("seat-now");
+      var r = results[i];
+      if (r) {
+        var col = r.side === "L" ? "var(--left)" : "var(--right)";
+        if (r.ok) {
+          c.setAttribute("fill", col); c.setAttribute("stroke", "none");
+        } else {
+          c.setAttribute("fill", "var(--surface)");
+          c.setAttribute("stroke", col); c.setAttribute("stroke-width", "3");
+        }
+      } else {
+        c.setAttribute("fill", "var(--seat-empty)"); c.setAttribute("stroke", "none");
+      }
+    });
+    if (idx < order.length && seatEls[idx]) seatEls[idx].classList.add("seat-now");
+    hemiNum.textContent = Math.min(results.length, order.length) + "/" + order.length;
+  }
+
+  function setCard(x) {
+    card.style.transform = x ? "translateX(" + x + "px) rotate(" + (x / 18) + "deg)" : "";
+    var p = Math.min(Math.abs(x) / 90, 1);
+    stampL.style.opacity = x < 0 ? p : 0;
+    stampR.style.opacity = x > 0 ? p : 0;
+  }
+
+  function show(which) {
+    playEl.hidden = which !== "play";
+    revealEl.hidden = which !== "reveal";
+    resultEl.hidden = which !== "result";
+  }
+
+  function loadCard() {
+    locked = false;
+    card.style.transition = "none";
+    card.style.opacity = "1";
+    setCard(0);
+    $("practice").textContent = order[idx].t;
+    show("play");
+    card.classList.remove("enter");
+    void card.offsetWidth;
+    card.classList.add("enter");
+    paintSeats();
+    card.focus({ preventScroll: true });
+  }
+
+  function answer(guess) {
+    if (locked) return;
+    locked = true;
+    var q = order[idx];
+    var ok = guess === q.s;
+    results[idx] = { side: q.s, guess: guess, ok: ok };
+    var dir = guess === "L" ? -1 : 1;
+    card.style.transition = "transform " + T + "ms ease-in, opacity " + T + "ms ease-in";
+    card.style.transform = "translateX(" + (dir * 140) + "%) rotate(" + (dir * 14) + "deg)";
+    card.style.opacity = "0";
+    setTimeout(function () {
+      var sideWord = q.s === "L" ? "de gauche" : "de droite";
+      $("mark").textContent = ok ? "✓" : "✗";
+      $("verdict").textContent = ok ? "Bien vu" : "Raté";
+      var sl = $("sideline");
+      sl.textContent = "C'est plutôt ";
+      var st = document.createElement("strong");
+      st.className = q.s === "L" ? "tagL" : "tagR";
+      st.textContent = sideWord;
+      sl.appendChild(st);
+      sl.appendChild(document.createTextNode("."));
+      $("quip").textContent = q.q;
+      $("picked").textContent = "Tu as swipé à " + (guess === "L" ? "gauche" : "droite") + ".";
+      $("next").textContent = idx === order.length - 1 ? "Voir mon score" : "Carte suivante";
+      show("reveal");
+      var rc = revealEl.querySelector(".card");
+      rc.classList.remove("enter"); void rc.offsetWidth; rc.classList.add("enter");
+      idx++;
+      paintSeats();
+      $("next").focus({ preventScroll: true });
+    }, T);
+  }
+
+  function next() {
+    if (idx >= order.length) return finish();
+    loadCard();
+  }
+
+  function scoreText() {
+    var n = results.filter(function (r) { return r.ok; }).length;
+    return n;
+  }
+
+  function finish() {
+    var n = scoreText(), total = order.length, ratio = n / total;
+    var tier = TIERS.filter(function (t) { return ratio < t.max || t.max > 1; })[0];
+    $("scoreN").textContent = n;
+    $("scoreT").textContent = " / " + total;
+    $("rtitle").textContent = tier.title;
+    $("rmsg").textContent = tier.msg;
+    $("shareText").hidden = true;
+    $("share").textContent = "Copier mon score";
+    show("result");
+    seatEls.forEach(function (c) { c.classList.remove("seat-now"); });
+    hemiNum.textContent = n + "/" + total;
+    hemiLab.textContent = "bien vus";
+    $("again").focus({ preventScroll: true });
+  }
+
+  function restart() {
+    order = shuffle(QUESTIONS);
+    idx = 0; results = [];
+    buildHemicycle(order.length);
+    hemiLab.textContent = "cartes jouées";
+    loadCard();
+  }
+
+  // Glisser la carte
+  var startX = 0, dx = 0, dragging = false;
+  card.addEventListener("pointerdown", function (e) {
+    if (locked) return;
+    dragging = true; startX = e.clientX; dx = 0;
+    card.style.transition = "none";
+    card.classList.add("drag");
+    try { card.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  card.addEventListener("pointermove", function (e) {
+    if (!dragging) return;
+    dx = e.clientX - startX;
+    setCard(dx);
+  });
+  function endDrag() {
+    if (!dragging) return;
+    dragging = false;
+    card.classList.remove("drag");
+    if (Math.abs(dx) > 90) {
+      answer(dx < 0 ? "L" : "R");
+    } else {
+      card.style.transition = "transform .2s ease-out";
+      dx = 0; setCard(0);
+    }
+  }
+  card.addEventListener("pointerup", endDrag);
+  card.addEventListener("pointercancel", endDrag);
+
+  $("btnL").addEventListener("click", function () { answer("L"); });
+  $("btnR").addEventListener("click", function () { answer("R"); });
+  $("next").addEventListener("click", next);
+  $("again").addEventListener("click", restart);
+
+  document.addEventListener("keydown", function (e) {
+    if (!playEl.hidden && !locked) {
+      if (e.key === "ArrowLeft") { e.preventDefault(); answer("L"); }
+      if (e.key === "ArrowRight") { e.preventDefault(); answer("R"); }
+    } else if (!revealEl.hidden && e.key === "ArrowRight") {
+      e.preventDefault(); next();
+    }
+  });
+
+  $("share").addEventListener("click", function () {
+    var n = scoreText(), total = order.length, link = "";
+    try { link = " " + window.location.href; } catch (err) {}
+    var text = "J'ai eu " + n + "/" + total + " à « À gauche ou à droite ». Fais mieux !" + link;
+    var ta = $("shareText");
+    function fallback() {
+      ta.value = text; ta.hidden = false; ta.focus(); ta.select();
+      $("share").textContent = "Sélectionne et copie";
+    }
+    try {
+      navigator.clipboard.writeText(text).then(function () {
+        $("share").textContent = "Copié";
+      }, fallback);
+    } catch (err) { fallback(); }
+  });
+
+  restart();
+})();
+</script>
